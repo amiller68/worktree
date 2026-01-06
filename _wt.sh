@@ -31,7 +31,7 @@ print_usage() {
     echo "  remove <name>           - Remove a worktree"
     echo "  open <name>             - cd to worktree directory"
     echo "  cleanup                 - Remove all worktrees"
-    echo "  update                  - Update wt to latest version"
+    echo "  update [--force]        - Update wt to latest version"
     echo "  version                 - Show version info"
     echo ""
     echo "Examples:"
@@ -204,6 +204,8 @@ show_version() {
 }
 
 update_worktree() {
+    local force="$1"
+
     if [ ! -d "$INSTALL_DIR/.git" ]; then
         echo -e "${RED}Error: Install directory is not a git repository${NC}"
         echo "Reinstall with: curl -sSf https://raw.githubusercontent.com/amiller68/worktree/main/install.sh | bash"
@@ -211,10 +213,17 @@ update_worktree() {
     fi
 
     local old_version=$(get_version)
-    echo -e "${BLUE}Updating worktree...${NC}"
+    echo -e "${BLUE}Updating wt...${NC}"
 
     cd "$INSTALL_DIR"
-    git pull --ff-only origin main
+
+    if [ "$force" = "--force" ] || [ "$force" = "-f" ]; then
+        echo -e "${YELLOW}Force updating...${NC}"
+        git fetch origin main
+        git reset --hard origin/main
+    else
+        git pull --ff-only origin main
+    fi
 
     local new_version=$(get_version)
     if [ "$old_version" = "$new_version" ]; then
@@ -245,7 +254,7 @@ done
 # Commands that don't need a git repo
 case "$1" in
 update)
-    update_worktree
+    update_worktree "$2"
     exit 0
     ;;
 version)
