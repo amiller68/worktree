@@ -1,8 +1,6 @@
 #!/bin/bash
 # Simple tests for wt
 
-set -e
-
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
@@ -10,11 +8,14 @@ NC='\033[0m'
 PASS=0
 FAIL=0
 
-# Setup test repo
+# Setup test repo with origin/dev
 TEST_DIR=$(mktemp -d)
 cd "$TEST_DIR"
 git init -q
 git commit --allow-empty -m "init" -q
+git branch dev
+git remote add origin "$TEST_DIR"  # fake remote pointing to self
+git fetch -q origin 2>/dev/null || true
 
 # Source the wt function
 source "$HOME/.local/share/worktree/shell/wt.bash" 2>/dev/null || {
@@ -70,7 +71,8 @@ echo ""
 echo "--- Test: create worktree ---"
 _wt create test1 2>/dev/null
 assert_dir_exists "$TEST_DIR/.worktrees/test1" "create worktree"
-assert_dir_exists "$TEST_DIR/.worktrees/test1/.git" "worktree has .git"
+# .git in worktree is a file, not a dir
+[[ -f "$TEST_DIR/.worktrees/test1/.git" ]] && echo -e "${GREEN}PASS${NC}: worktree has .git file" && ((PASS++)) || { echo -e "${RED}FAIL${NC}: worktree missing .git file"; ((FAIL++)); }
 
 # Test: list worktrees
 echo "--- Test: list worktrees ---"
@@ -86,7 +88,10 @@ assert_eq "contains cd" "$result" "create -o outputs cd command"
 # Test: open outputs cd command
 echo "--- Test: open outputs cd ---"
 output=$(_wt open test1 2>/dev/null)
-assert_eq "cd \"$TEST_DIR/.worktrees/test1\"" "$output" "open outputs correct cd"
+# Handle macOS /var -> /private/var symlink
+expected_path=$(cd "$TEST_DIR/.worktrees/test1" && pwd -P)
+[[ "$output" == *"$expected_path"* ]] && result="correct" || result="wrong"
+assert_eq "correct" "$result" "open outputs correct cd"
 
 # Test: remove worktree
 echo "--- Test: remove worktree ---"
