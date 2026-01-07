@@ -8,21 +8,21 @@ NC='\033[0m'
 PASS=0
 FAIL=0
 
+# Use local version - add script dir to PATH and source local shell config
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export PATH="$SCRIPT_DIR:$PATH"
+ln -sf "$SCRIPT_DIR/_wt.sh" "$SCRIPT_DIR/_wt"
+source "$SCRIPT_DIR/shell/wt.bash"
+
 # Setup test repo with origin/dev
 TEST_DIR=$(mktemp -d)
 cd "$TEST_DIR"
 git init -q
 git commit --allow-empty -m "init" -q
 git branch dev
-git remote add origin "$TEST_DIR"  # fake remote pointing to self
-git fetch -q origin 2>/dev/null || true
-
-# Source the wt function
-source "$HOME/.local/share/worktree/shell/wt.bash" 2>/dev/null || {
-    echo "wt not installed, using local"
-    # Fallback for testing locally
-    export PATH="$(dirname "$0"):$PATH"
-}
+git remote add origin "$TEST_DIR"
+git fetch -q origin
+git branch --set-upstream-to=origin/dev dev 2>/dev/null || true
 
 assert_eq() {
     local expected="$1"
