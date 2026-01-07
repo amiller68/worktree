@@ -116,17 +116,18 @@ create_worktree() {
     cd "$REPO_DIR"
 
     # If using default branch name (same as worktree), check if branch exists
+    # Redirect git output to stderr so it doesn't interfere with cd command
     if [ "$branch" = "$name" ]; then
         # Check if branch exists locally or remotely
         if git show-ref --verify --quiet "refs/heads/$name" || git show-ref --verify --quiet "refs/remotes/origin/$name"; then
-            echo -e "${YELLOW}Using existing branch '$name'${NC}"
-            git worktree add "$worktree_path" "$name"
+            echo -e "${YELLOW}Using existing branch '$name'${NC}" >&2
+            git worktree add "$worktree_path" "$name" >&2
         else
-            echo -e "${YELLOW}Creating new branch '$name' from origin/dev${NC}"
-            git worktree add -b "$name" "$worktree_path" origin/dev
+            echo -e "${YELLOW}Creating new branch '$name' from origin/dev${NC}" >&2
+            git worktree add -b "$name" "$worktree_path" origin/dev >&2
         fi
     else
-        git worktree add "$worktree_path" "$branch"
+        git worktree add "$worktree_path" "$branch" >&2
     fi
 
     echo -e "${GREEN}Worktree created successfully!${NC}" >&2
