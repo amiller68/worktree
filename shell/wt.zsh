@@ -5,8 +5,8 @@
 [[ ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin:$PATH"
 
 wt() {
-    # Eval output if command might cd (open, cleanup, or create with -o flag)
-    if [[ "$1" == "open" || "$1" == "cleanup" || "$1" == "-o" || "$2" == "-o" || "$*" == *"-o"* ]]; then
+    # Eval output if command might cd (open, exit, or create with -o flag)
+    if [[ "$1" == "open" || "$1" == "exit" || "$1" == "-o" || "$2" == "-o" || "$*" == *"-o"* ]]; then
         eval "$(_wt "$@")"
     else
         _wt "$@"
@@ -44,7 +44,7 @@ _wt_completion() {
         'list:List worktrees'
         'remove:Remove a worktree'
         'open:cd to worktree directory'
-        'cleanup:Remove all worktrees'
+        'exit:Exit current worktree (removes it)'
         'config:Configure base branch settings'
         'update:Update wt to latest version'
         'version:Show version info'

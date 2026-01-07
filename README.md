@@ -36,8 +36,7 @@ source ~/.zshrc  # or ~/.bashrc
 | `wt list` | List worktrees in `.worktrees/` |
 | `wt list --all` | List all git worktrees |
 | `wt remove <pattern>` | Remove worktree(s) matching pattern (supports glob) |
-| `wt cleanup` | Remove current worktree (or all from base repo), skips dirty |
-| `wt cleanup --force` | Remove even if worktree has uncommitted changes |
+| `wt exit [--force]` | Exit current worktree (removes it, returns to base) |
 | `wt config` | Show config for current repo |
 | `wt config base <branch>` | Set base branch for current repo |
 | `wt config base --global <branch>` | Set global default base branch |
@@ -222,7 +221,7 @@ Each worktree is a full checkout of your repo on its own branch. Changes in one 
 Both bash and zsh get tab completion:
 
 ```bash
-wt <TAB>           # Shows: create list open remove cleanup config update version
+wt <TAB>           # Shows: create list open remove exit config update version
 wt open <TAB>      # Shows available worktrees
 wt remove <TAB>    # Shows available worktrees
 wt config <TAB>    # Shows: base on-create --list

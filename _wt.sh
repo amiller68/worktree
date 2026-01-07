@@ -31,7 +31,7 @@ print_usage() {
     echo "  list [--all]            - List worktrees (--all shows all git worktrees)"
     echo "  remove <name>           - Remove a worktree"
     echo "  open <name>             - cd to worktree directory"
-    echo "  cleanup                 - Remove all worktrees"
+    echo "  exit [--force]          - Exit current worktree (removes it, returns to base)"
     echo "  config                  - Show config for current repo"
     echo "  config base <branch>    - Set base branch for current repo"
     echo "  config base --global <branch> - Set global default base branch"
@@ -371,6 +371,12 @@ get_current_worktree() {
     return 1
 }
 
+# Check if worktree has uncommitted changes
+is_worktree_dirty() {
+    local worktree_path="$1"
+    git -C "$worktree_path" status --porcelain 2>/dev/null | grep -q .
+}
+
 # Get list of worktree names in .worktrees (handles nested paths like feature/auth/login)
 get_worktree_names() {
     if [ ! -d "$WORKTREES_BASE_DIR" ]; then
@@ -552,71 +558,35 @@ open_worktree() {
     echo "cd \"$worktree_path\""
 }
 
-cleanup_worktrees() {
+exit_worktree() {
     local force="$1"
     local force_flag=""
     [[ "$force" == "--force" || "$force" == "-f" ]] && force_flag="--force"
 
     local current_worktree=$(get_current_worktree)
 
-    if [ -n "$current_worktree" ]; then
-        # In a worktree - remove just this one and return to base
-        local worktree_path="$WORKTREES_BASE_DIR/$current_worktree"
-
-        # Check if worktree is dirty
-        if is_worktree_dirty "$worktree_path" && [ -z "$force_flag" ]; then
-            echo -e "${RED}Error: Current worktree has uncommitted changes${NC}" >&2
-            echo -e "Use ${YELLOW}wt cleanup --force${NC} to remove anyway" >&2
-            exit 1
-        fi
-
-        echo -e "${YELLOW}Removing worktree: $current_worktree${NC}" >&2
-
-        # Output cd command FIRST (so shell wrapper can eval it)
-        echo "cd \"$REPO_DIR\""
-
-        # Then remove the worktree (from base repo context)
-        cd "$REPO_DIR"
-        git worktree remove $force_flag "$worktree_path" >&2
-        echo -e "${GREEN}Done!${NC}" >&2
-    else
-        # In base repo - existing behavior (remove all)
-        echo -e "${YELLOW}Cleaning up all worktrees...${NC}" >&2
-
-        if [ -d "$WORKTREES_BASE_DIR" ]; then
-            cd "$REPO_DIR"
-
-            local skipped=0
-            # Remove all worktrees
-            for worktree_dir in "$WORKTREES_BASE_DIR"/*; do
-                if [ -d "$worktree_dir" ]; then
-                    local name=$(basename "$worktree_dir")
-
-                    # Check if worktree is dirty
-                    if is_worktree_dirty "$worktree_dir" && [ -z "$force_flag" ]; then
-                        echo -e "${YELLOW}Skipping${NC} $name (has uncommitted changes)" >&2
-                        ((skipped++))
-                        continue
-                    fi
-
-                    echo "Removing worktree: $name" >&2
-                    git worktree remove $force_flag "$worktree_dir" 2>/dev/null || true
-                fi
-            done
-
-            # Only remove the base directory if all worktrees were removed
-            if [ "$skipped" -eq 0 ]; then
-                rm -rf "$WORKTREES_BASE_DIR"
-            fi
-
-            if [ "$skipped" -gt 0 ]; then
-                echo -e "${YELLOW}Skipped $skipped worktree(s) with uncommitted changes${NC}" >&2
-                echo -e "Use ${YELLOW}wt cleanup --force${NC} to remove all" >&2
-            fi
-        fi
-
-        echo -e "${GREEN}Cleanup complete!${NC}" >&2
+    if [ -z "$current_worktree" ]; then
+        echo -e "${RED}Error: Not in a worktree. Use 'wt exit' from within a worktree.${NC}" >&2
+        exit 1
     fi
+
+    local worktree_path="$WORKTREES_BASE_DIR/$current_worktree"
+
+    # Check for uncommitted changes
+    if is_worktree_dirty "$worktree_path" && [ -z "$force_flag" ]; then
+        echo -e "${RED}Error: Worktree has uncommitted changes. Use --force to remove anyway.${NC}" >&2
+        exit 1
+    fi
+
+    echo -e "${YELLOW}Exiting worktree: $current_worktree${NC}" >&2
+
+    # Output cd command for shell wrapper
+    echo "cd \"$REPO_DIR\""
+
+    # Remove the worktree
+    cd "$REPO_DIR"
+    git worktree remove $force_flag "$worktree_path" >&2
+    echo -e "${GREEN}Done!${NC}" >&2
 }
 
 get_version() {
@@ -742,8 +712,8 @@ remove)
 open)
     open_worktree "$2"
     ;;
-cleanup)
-    cleanup_worktrees "$2"
+exit)
+    exit_worktree "$2"
     ;;
 config)
     shift  # remove 'config'

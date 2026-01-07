@@ -5,8 +5,8 @@
 [[ ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin:$PATH"
 
 wt() {
-    # Eval output if command might cd (open, cleanup, or create with -o flag)
-    if [[ "$1" == "open" || "$1" == "cleanup" || "$1" == "-o" || "$2" == "-o" || "$*" == *"-o"* ]]; then
+    # Eval output if command might cd (open, exit, or create with -o flag)
+    if [[ "$1" == "open" || "$1" == "exit" || "$1" == "-o" || "$2" == "-o" || "$*" == *"-o"* ]]; then
         eval "$(_wt "$@")"
     else
         _wt "$@"
@@ -41,7 +41,7 @@ _wt_complete() {
     local prev=${COMP_WORDS[COMP_CWORD-1]}
 
     if [[ $COMP_CWORD -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "create list remove open cleanup config update version which -o --no-hooks" -- "$cur"))
+        COMPREPLY=($(compgen -W "create list remove open exit config update version which -o --no-hooks" -- "$cur"))
     elif [[ $COMP_CWORD -eq 2 ]]; then
         case $prev in
             open|remove)
