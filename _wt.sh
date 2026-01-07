@@ -158,26 +158,47 @@ list_worktrees() {
 }
 
 remove_worktree() {
-    local name="$1"
+    local pattern="$1"
 
-    if [ -z "$name" ]; then
-        echo -e "${RED}Error: Worktree name is required${NC}"
-        print_usage
+    if [ -z "$pattern" ]; then
+        echo -e "${RED}Error: Worktree name or pattern is required${NC}" >&2
+        print_usage >&2
         exit 1
     fi
 
-    local worktree_path=$(resolve_worktree_path "$name")
-    if [ -z "$worktree_path" ]; then
-        echo -e "${RED}Error: Worktree '$name' does not exist${NC}"
+    # Get matching worktrees (supports regex)
+    local matches=$(get_worktree_names | grep -E "^${pattern}$" 2>/dev/null)
+
+    # If no regex match, try exact match for backwards compatibility
+    if [ -z "$matches" ]; then
+        local worktree_path=$(resolve_worktree_path "$pattern")
+        if [ -n "$worktree_path" ]; then
+            matches="$pattern"
+        fi
+    fi
+
+    if [ -z "$matches" ]; then
+        echo -e "${RED}Error: No worktrees match '$pattern'${NC}" >&2
         exit 1
     fi
 
-    echo -e "${YELLOW}Removing worktree '$name'...${NC}"
+    # Count matches
+    local count=$(echo "$matches" | wc -l | tr -d ' ')
 
+    # Show what will be removed
+    echo -e "${YELLOW}Removing $count worktree(s):${NC}" >&2
+    echo "$matches" | while read -r name; do
+        echo "  - $name" >&2
+    done
+
+    # Remove each
     cd "$REPO_DIR"
-    git worktree remove "$worktree_path"
+    echo "$matches" | while read -r name; do
+        local path="$WORKTREES_BASE_DIR/$name"
+        git worktree remove "$path" >&2
+    done
 
-    echo -e "${GREEN}Worktree removed successfully!${NC}"
+    echo -e "${GREEN}Done!${NC}" >&2
 }
 
 open_worktree() {

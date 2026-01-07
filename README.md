@@ -32,7 +32,7 @@ source ~/.zshrc  # or ~/.bashrc
 | `wt open <name>` | cd into an existing worktree |
 | `wt list` | List worktrees in `.worktrees/` |
 | `wt list --all` | List all git worktrees |
-| `wt remove <name>` | Remove a worktree |
+| `wt remove <pattern>` | Remove worktree(s) matching pattern (supports regex) |
 | `wt cleanup` | Remove all worktrees |
 | `wt update` | Update wt to latest version |
 | `wt update --force` | Force update (reset to remote) |
@@ -83,6 +83,14 @@ wt create my-worktree existing-branch
 ```bash
 wt create feature/auth/oauth -o
 # Creates .worktrees/feature/auth/oauth/
+```
+
+### Remove with regex
+
+```bash
+wt remove test1              # Remove exact match
+wt remove 'test.*'           # Remove all starting with "test"
+wt remove 'feature/.*'       # Remove all under feature/
 ```
 
 ## How it works
