@@ -300,18 +300,18 @@ detect_repo
 case "$1" in
 create)
     # Handle -o flag in any position
-    local name="" branch=""
+    _name="" _branch=""
     shift  # remove 'create'
     for arg in "$@"; do
         if [[ "$arg" == "-o" ]]; then
             OPEN_AFTER="true"
-        elif [[ -z "$name" ]]; then
-            name="$arg"
+        elif [[ -z "$_name" ]]; then
+            _name="$arg"
         else
-            branch="$arg"
+            _branch="$arg"
         fi
     done
-    create_worktree "$name" "$branch"
+    create_worktree "$_name" "$_branch"
     ;;
 list)
     list_worktrees "$2"
