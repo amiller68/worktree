@@ -43,9 +43,8 @@ print_usage() {
 }
 
 detect_repo() {
-    REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null)
-    if [ -z "$REPO_DIR" ]; then
-        echo -e "${RED}Error: Not inside a git repository${NC}"
+    if ! REPO_DIR=$(git rev-parse --show-toplevel 2>/dev/null); then
+        echo -e "${RED}Error: Not inside a git repository${NC}" >&2
         exit 1
     fi
     WORKTREES_BASE_DIR="$REPO_DIR/.worktrees"
