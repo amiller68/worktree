@@ -351,6 +351,7 @@ list_worktrees() {
 
 remove_worktree() {
     local pattern="$1"
+    local force="$2"
 
     if [ -z "$pattern" ]; then
         echo -e "${RED}Error: Worktree name or pattern is required${NC}" >&2
@@ -390,7 +391,7 @@ remove_worktree() {
     cd "$REPO_DIR"
     echo "$matches" | while read -r name; do
         local path="$WORKTREES_BASE_DIR/$name"
-        git worktree remove "$path" >&2
+        git worktree remove $force "$path" >&2
     done
 
     echo -e "${GREEN}Done!${NC}" >&2
@@ -539,7 +540,16 @@ list)
     list_worktrees "$2"
     ;;
 remove)
-    remove_worktree "$2"
+    _pattern="" _force=""
+    shift  # remove 'remove'
+    for arg in "$@"; do
+        if [[ "$arg" == "--force" ]] || [[ "$arg" == "-f" ]]; then
+            _force="--force"
+        elif [[ -z "$_pattern" ]]; then
+            _pattern="$arg"
+        fi
+    done
+    remove_worktree "$_pattern" "$_force"
     ;;
 open)
     open_worktree "$2"
