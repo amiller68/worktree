@@ -85,12 +85,12 @@ wt create feature/auth/oauth -o
 # Creates .worktrees/feature/auth/oauth/
 ```
 
-### Remove with regex
+### Remove with glob patterns
 
 ```bash
 wt remove test1              # Remove exact match
-wt remove 'test.*'           # Remove all starting with "test"
-wt remove 'feature/.*'       # Remove all under feature/
+wt remove 'test*'            # Remove all starting with "test"
+wt remove 'feature/*'        # Remove all under feature/
 ```
 
 ## How it works

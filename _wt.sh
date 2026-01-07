@@ -166,8 +166,11 @@ remove_worktree() {
         exit 1
     fi
 
-    # Get matching worktrees (supports regex)
-    local matches=$(get_worktree_names | grep -E "^${pattern}$" 2>/dev/null)
+    # Convert glob to regex: * -> .*, ? -> .
+    local regex=$(echo "$pattern" | sed 's/\*/.\*/g; s/?/./g')
+
+    # Get matching worktrees
+    local matches=$(get_worktree_names | grep -E "^${regex}$" 2>/dev/null)
 
     # If no regex match, try exact match for backwards compatibility
     if [ -z "$matches" ]; then
