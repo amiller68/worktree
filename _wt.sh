@@ -94,13 +94,13 @@ create_worktree() {
     local worktree_path="$WORKTREES_BASE_DIR/$name"
 
     if [ -z "$name" ]; then
-        echo -e "${RED}Error: Worktree name is required${NC}"
-        print_usage
+        echo -e "${RED}Error: Worktree name is required${NC}" >&2
+        print_usage >&2
         exit 1
     fi
 
     if [ -d "$worktree_path" ]; then
-        echo -e "${RED}Error: Worktree '$name' already exists at $worktree_path${NC}"
+        echo -e "${RED}Error: Worktree '$name' already exists at $worktree_path${NC}" >&2
         exit 1
     fi
 
