@@ -17,13 +17,14 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "Usage: wt [-o] <command> [worktree-name] [branch-name]"
+    echo "Usage: wt [-o] [--no-hooks] <command> [worktree-name] [branch-name]"
     echo ""
     echo "Manages git worktrees within the current repository's .worktrees/ directory."
     echo "Run this command from anywhere inside a git repository."
     echo ""
     echo "Options:"
     echo "  -o                      - Open: cd to worktree directory after create"
+    echo "  --no-hooks              - Skip on-create hook execution"
     echo ""
     echo "Commands:"
     echo "  create <name> [branch]  - Create a new worktree (branch defaults to configured base)"
@@ -31,9 +32,11 @@ print_usage() {
     echo "  remove <name>           - Remove a worktree"
     echo "  open <name>             - cd to worktree directory"
     echo "  cleanup                 - Remove all worktrees"
-    echo "  config                  - Show base branch config for current repo"
+    echo "  config                  - Show config for current repo"
     echo "  config base <branch>    - Set base branch for current repo"
     echo "  config base --global <branch> - Set global default base branch"
+    echo "  config on-create <cmd>  - Set on-create hook for current repo"
+    echo "  config on-create --unset - Remove on-create hook"
     echo "  config --list           - List all configuration"
     echo "  update [--force]        - Update wt to latest version"
     echo "  version                 - Show version info"
@@ -42,8 +45,10 @@ print_usage() {
     echo "Examples:"
     echo "  wt create feature/auth/login"
     echo "  wt -o create feature-branch   # create and cd"
+    echo "  wt create name --no-hooks     # skip hook"
     echo "  wt open feature/auth/login    # cd to existing"
-    echo "  wt config base origin/main    # set base branch for this repo"
+    echo "  wt config base origin/main    # set base branch"
+    echo "  wt config on-create 'pnpm install'  # set hook"
     echo "  wt list"
     echo "  wt update"
 }
@@ -113,6 +118,36 @@ unset_config_value() {
     mv "$tmp_file" "$config_file"
 }
 
+# Get the on_create hook for a repository
+get_on_create_hook() {
+    local repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -n "$repo_root" ]; then
+        get_config_value "${repo_root}:on_create"
+    fi
+}
+
+# Execute on-create hook in the worktree directory
+run_on_create_hook() {
+    local worktree_path="$1"
+    local hook_command=$(get_on_create_hook)
+
+    if [ -z "$hook_command" ]; then
+        return 0
+    fi
+
+    echo -e "${BLUE}Running on-create hook: ${hook_command}${NC}" >&2
+
+    # Run the hook command in the worktree directory
+    if (cd "$worktree_path" && bash -c "$hook_command") >&2; then
+        echo -e "${GREEN}Hook completed successfully${NC}" >&2
+        return 0
+    else
+        local exit_code=$?
+        echo -e "${YELLOW}Warning: Hook failed with exit code $exit_code${NC}" >&2
+        return $exit_code
+    fi
+}
+
 get_base_branch() {
     # Resolution order: repo-specific -> global default -> hardcoded default
     local repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -146,19 +181,24 @@ handle_config() {
             # Show config for current repo
             local repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
             local repo_base=""
+            local repo_hook=""
             local global_base=$(get_config_value "_default")
 
             if [ -n "$repo_root" ]; then
                 repo_base=$(get_config_value "$repo_root")
+                repo_hook=$(get_config_value "${repo_root}:on_create")
             fi
 
             if [ -n "$repo_base" ]; then
-                echo -e "${BLUE}Repository:${NC} $repo_base"
+                echo -e "${BLUE}Repository base:${NC} $repo_base"
+            fi
+            if [ -n "$repo_hook" ]; then
+                echo -e "${BLUE}On-create hook:${NC} $repo_hook"
             fi
             if [ -n "$global_base" ]; then
                 echo -e "${BLUE}Global default:${NC} $global_base"
             fi
-            if [ -z "$repo_base" ] && [ -z "$global_base" ]; then
+            if [ -z "$repo_base" ] && [ -z "$global_base" ] && [ -z "$repo_hook" ]; then
                 echo -e "${YELLOW}No config set. Using default: origin/main${NC}"
             fi
             echo -e "${BLUE}Effective base branch:${NC} $(get_base_branch)"
@@ -230,18 +270,66 @@ handle_config() {
                 echo -e "${BLUE}Configuration:${NC}"
                 while IFS='=' read -r key value; do
                     if [ "$key" = "_default" ]; then
-                        echo -e "  ${YELLOW}[global]${NC} $value"
+                        echo -e "  ${YELLOW}[global]${NC} base = $value"
+                    elif [[ "$key" == *":on_create" ]]; then
+                        local repo="${key%:on_create}"
+                        echo -e "  $repo"
+                        echo -e "    on-create = $value"
                     else
-                        echo -e "  $key = $value"
+                        echo -e "  $key"
+                        echo -e "    base = $value"
                     fi
                 done < "$config_file"
             else
                 echo -e "${YELLOW}No configuration set${NC}"
             fi
             ;;
+        "on-create")
+            local is_unset=false
+            local command=""
+
+            # Parse arguments - everything that's not --unset is the command
+            while [ $# -gt 0 ]; do
+                case "$1" in
+                    --unset)
+                        is_unset=true
+                        shift
+                        ;;
+                    *)
+                        if [ -z "$command" ]; then
+                            command="$1"
+                        else
+                            command="$command $1"
+                        fi
+                        shift
+                        ;;
+                esac
+            done
+
+            local repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+            if [ -z "$repo_root" ]; then
+                echo -e "${RED}Error: Not inside a git repository${NC}" >&2
+                exit 1
+            fi
+
+            if [ "$is_unset" = true ]; then
+                unset_config_value "${repo_root}:on_create"
+                echo -e "${GREEN}On-create hook unset for: $repo_root${NC}"
+            elif [ -n "$command" ]; then
+                set_config_value "${repo_root}:on_create" "$command"
+                echo -e "${GREEN}On-create hook set to: $command${NC}"
+            else
+                local val=$(get_config_value "${repo_root}:on_create")
+                if [ -n "$val" ]; then
+                    echo "$val"
+                else
+                    echo -e "${YELLOW}No on-create hook set for this repository${NC}"
+                fi
+            fi
+            ;;
         *)
             echo -e "${RED}Error: Unknown config subcommand '$subcommand'${NC}" >&2
-            echo "Usage: wt config [base [--global] [--unset] [branch]] [--list]" >&2
+            echo "Usage: wt config [base [--global] [--unset] [branch]] [on-create [--unset] [command]] [--list]" >&2
             exit 1
             ;;
     esac
@@ -324,6 +412,11 @@ create_worktree() {
 
     echo -e "${GREEN}Worktree created successfully!${NC}" >&2
     echo -e "${YELLOW}Path: $worktree_path${NC}" >&2
+
+    # Run on-create hook unless --no-hooks was specified
+    if [ "$NO_HOOKS" != "true" ]; then
+        run_on_create_hook "$worktree_path" || true
+    fi
 
     if [ "$OPEN_AFTER" = "true" ]; then
         open_worktree "$name"
@@ -483,12 +576,17 @@ update_worktree() {
 
 # Parse arguments
 OPEN_AFTER="false"
+NO_HOOKS="false"
 
 # Check for flags
 while [[ "$1" == -* ]]; do
     case "$1" in
         -o)
             OPEN_AFTER="true"
+            shift
+            ;;
+        --no-hooks)
+            NO_HOOKS="true"
             shift
             ;;
         *)
@@ -521,12 +619,14 @@ detect_repo
 
 case "$1" in
 create)
-    # Handle -o flag in any position
+    # Handle -o and --no-hooks flags in any position
     _name="" _branch=""
     shift  # remove 'create'
     for arg in "$@"; do
         if [[ "$arg" == "-o" ]]; then
             OPEN_AFTER="true"
+        elif [[ "$arg" == "--no-hooks" ]]; then
+            NO_HOOKS="true"
         elif [[ -z "$_name" ]]; then
             _name="$arg"
         else
