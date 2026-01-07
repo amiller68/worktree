@@ -64,9 +64,13 @@ get_worktree_names() {
     if [ ! -d "$WORKTREES_BASE_DIR" ]; then
         return
     fi
-    # Find directories containing .git file (actual worktrees)
-    find "$WORKTREES_BASE_DIR" -name ".git" -type f 2>/dev/null | while read -r gitfile; do
-        dirname "$gitfile" | sed "s|^$WORKTREES_BASE_DIR/||"
+    # Use git worktree list and filter for .worktrees paths
+    git worktree list --porcelain 2>/dev/null | grep "^worktree " | cut -d' ' -f2- | while read -r path; do
+        case "$path" in
+            "$WORKTREES_BASE_DIR"*)
+                echo "${path#$WORKTREES_BASE_DIR/}"
+                ;;
+        esac
     done
 }
 

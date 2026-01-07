@@ -16,8 +16,8 @@ wt() {
 _wt_get_worktrees() {
     local repo=$(git rev-parse --show-toplevel 2>/dev/null)
     [[ -d "$repo/.worktrees" ]] || return
-    find "$repo/.worktrees" -name ".git" -type f 2>/dev/null | while read -r gitfile; do
-        dirname "$gitfile" | sed "s|^$repo/.worktrees/||"
+    git worktree list --porcelain 2>/dev/null | grep "^worktree " | cut -d' ' -f2- | while read -r path; do
+        [[ "$path" == "$repo/.worktrees"* ]] && echo "${path#$repo/.worktrees/}"
     done
 }
 
