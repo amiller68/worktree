@@ -104,7 +104,7 @@ create_worktree() {
         exit 1
     fi
 
-    echo -e "${BLUE}Creating worktree '$name' from branch '$branch'...${NC}"
+    echo -e "${BLUE}Creating worktree '$name' from branch '$branch'...${NC}" >&2
 
     # Ensure .worktrees is in .git/info/exclude
     ensure_worktrees_excluded
